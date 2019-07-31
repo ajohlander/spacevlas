@@ -258,7 +258,7 @@ class TSeries(object):
 			h.plot(self.time,self.data[:,2],"-",linewidth=2,color="r")
 		if self.type == "spec":
 			cdata = self.data.transpose()
-			cdata[cdata==0] = np.nan
+			cdata[cdata==0] = 1e-20
 			cdata = np.log10(cdata)
 			
 			h.pcolor(self.time,self.depend,cdata,vmin=np.nanmin(cdata),vmax=np.nanmax(cdata))
