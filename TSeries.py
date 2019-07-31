@@ -109,7 +109,7 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 	startTimeInd = tid[0]
 	for it in tid:
 		# get FULL individual file name
-		fileName = filePath+runCode+"/bulk."+str(tid[it-startTimeInd]).rjust(7,"0")+".vlsv"
+		fileName = filePath+runCode+"/bulk/bulk."+str(tid[it-startTimeInd]).rjust(7,"0")+".vlsv"
 		
 		# get vlsvfile object
 		vlsvReader = pt.vlsvfile.VlsvReader(fileName)
