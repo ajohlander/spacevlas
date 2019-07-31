@@ -259,7 +259,9 @@ class TSeries(object):
 		if self.type == "spec":
 			cdata = self.data.transpose()
 			cdata[cdata==0] = np.nan
-			h.pcolor(self.time,self.depend,np.log10(cdata))
+			cdata = np.log10(cdata)
+			
+			h.pcolor(self.time,self.depend,cdata,vmin=np.nanmin(cdata),vmax=np.nanmax(cdata))
 
 
 		
