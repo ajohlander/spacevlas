@@ -257,10 +257,9 @@ class TSeries(object):
 			h.plot(self.time,self.data[:,1],"-",linewidth=2,color="b")
 			h.plot(self.time,self.data[:,2],"-",linewidth=2,color="r")
 		if self.type == "spec":
-			#print([self.time,self.depend])
-			#print([self.time,self.depend].shape)
-			#print(self.data.shape)
-			h.pcolor(self.time,self.depend,np.log10(self.data.transpose()))
+			cdata = self.data.transpose()
+			cdata[cdata==0] = np.nan
+			h.pcolor(self.time,self.depend,np.log10(cdata))
 
 
 		
