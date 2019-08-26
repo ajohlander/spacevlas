@@ -73,7 +73,7 @@ def get_parameter(vlsvReader, cid, parstr, pop=None, Eedges=None, Nbins=None):
 
 		## get spherical mean of the distribution function
 		ftval = vd.get_energy_spectrogram(f,V,dv,Vedges,Nbins=Nbins)
-		return ftval, Ec, Eedges
+		return ftval, Ec, Eedges, Nbins
 
 	else:
 		print('unkown parameter')
@@ -121,6 +121,8 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 	print(ftdata)
 
 
+	# First time recalculate Nbins
+	Nbins = None
 
 	# Get parameters for each time step
 	startTimeInd = tid[0]
@@ -148,7 +150,7 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 			Bval = get_parameter(vlsvReader,cid,'B')
 			Vval = get_parameter(vlsvReader,cid,'V')
 			nval = get_parameter(vlsvReader,cid,'rho')
-			ftval, Eval, Eedges = get_parameter(vlsvReader,cid,'ft',pop="avgs")
+			ftval, Eval, Eedges, Nbins = get_parameter(vlsvReader,cid,'ft',pop="avgs",Nbins=Nbins)
 
 			# put in arrays
 			Bdata['Bdata'+str(isc)][it-startTimeInd,:] = Bval
