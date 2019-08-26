@@ -73,7 +73,7 @@ def get_parameter(vlsvReader, cid, parstr, pop=None, Eedges=None, Nbins=None):
 
 		## get spherical mean of the distribution function
 		ftval = vd.get_energy_spectrogram(f,V,dv,Vedges,Nbins=Nbins)
-		return ftval, Ec
+		return ftval, Ec, Eedges
 
 	else:
 		print('unkown parameter')
@@ -97,13 +97,30 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 	timeArray = np.array(tid*dt);
 
 
+	# number of points
+	nsc = SC_coord.size/3
+
 	# initiate arrays 
-	Bdata = np.zeros([nt,3])
-	Vdata = np.zeros([nt,3])
-	ndata = np.zeros(nt)
-	ftdata = np.zeros([nt,32]) # by deninition
-	
-	
+	#Bdata = np.zeros([nt,3])
+	#Vdata = np.zeros([nt,3])
+	#ndata = np.zeros(nt)
+	#ftdata = np.zeros([nt,32]) # by definition
+
+	# data is stored in dictionaries
+	Bdata = {}
+	Vdata = {}
+	ndata = {}
+	ftdata = {}
+
+	for isc in range(nsc):
+		Bdata['Bdata'+str(isc)] = np.zeros([nt,3])
+		Vdata['Vdata'+str(isc)] = np.zeros([nt,3])
+		ndata['ndata'+str(isc)] = np.zeros(nt)
+		ftdata['ftdata'+str(isc)] = np.zeros([nt,32])
+
+	print(ftdata)
+
+
 
 	# Get parameters for each time step
 	startTimeInd = tid[0]
@@ -114,26 +131,49 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 		# get vlsvfile object
 		vlsvReader = pt.vlsvfile.VlsvReader(fileName)
 
-		# get cell id of desired cell
-		cid = vlsvReader.get_cellid(SC_coord)
+		# loop through spacecraft position
+		for isc in range(nsc):
 
-		# get parameters
-		Bval = get_parameter(vlsvReader,cid,'B')
-		Vval = get_parameter(vlsvReader,cid,'V')
-		nval = get_parameter(vlsvReader,cid,'rho')
-		ftval, Eval = get_parameter(vlsvReader,cid,'ft',pop="avgs")
+			# get cell id of desired cell
+			if nsc == 1:
+				SC_coordTemp = SC_coord
+			else:
+				SC_coordTemp = SC_coord[isc,:]
 
-		# put in arrays
-		Bdata[it-startTimeInd,:] = Bval
-		Vdata[it-startTimeInd,:] = Vval
-		ndata[it-startTimeInd] = nval
-		ftdata[it-startTimeInd,:] = ftval
+			print(SC_coordTemp)
+
+			cid = vlsvReader.get_cellid(SC_coordTemp)
+
+			# get parameters
+			Bval = get_parameter(vlsvReader,cid,'B')
+			Vval = get_parameter(vlsvReader,cid,'V')
+			nval = get_parameter(vlsvReader,cid,'rho')
+			ftval, Eval, Eedges = get_parameter(vlsvReader,cid,'ft',pop="avgs")
+
+			# put in arrays
+			Bdata['Bdata'+str(isc)][it-startTimeInd,:] = Bval
+			Vdata['Vdata'+str(isc)][it-startTimeInd,:] = Vval
+			ndata['ndata'+str(isc)][it-startTimeInd] = nval
+			ftdata['ftdata'+str(isc)][it-startTimeInd,:] = ftval
 
 	# construct TSeries objects
-	B = vector(timeArray,Bdata,name="B",unit='nT')
-	V = vector(timeArray,Vdata,name="V",unit='km/s')
-	n = scalar(timeArray,ndata,unit='cm^-3')
-	ft = spec(timeArray,ftdata,Eval,unit='s^3/m^6')
+	# they are also in dictionaries if more than one sc
+	if nsc > 1:
+		B = {}
+		V = {}
+		n = {}
+		ft = {}
+
+		for isc in range(nsc):
+			B[str(isc)] = vector(timeArray,Bdata["Bdata"+str(isc)],name="B",unit='nT',position=SC_coord[isc,:])
+			V[str(isc)] = vector(timeArray,Vdata["Vdata"+str(isc)],name="V",unit='km/s',position=SC_coord[isc,:])
+			n[str(isc)] = scalar(timeArray,ndata["ndata"+str(isc)],unit='cm^-3',position=SC_coord[isc,:])
+			ft[str(isc)] = spec(timeArray,ftdata["ftdata"+str(isc)],Eval,unit='s^3/m^6',position=SC_coord[isc,:],ancillary={'Eedges':Eedges})
+	else:
+		B = vector(timeArray,Bdata['Bdata0'],name="B",unit='nT',position=SC_coord)
+		V = vector(timeArray,Vdata['Vdata0'],name="V",unit='km/s',position=SC_coord)
+		n = scalar(timeArray,ndata['ndata0'],name="n",unit='cm^-3',position=SC_coord)
+		ft = spec(timeArray,ftdata['ftdata0'],Eval,name="ft",unit='s^3/m^6',position=SC_coord)
 
 	return B,V,n,ft
 
@@ -141,7 +181,7 @@ def get_TSeries(filePath, runCode, tid, SC_coord):
 
 
 
-def scalar(time, data, unit=None, name=""):
+def scalar(time, data, unit=None, name="",position=None):
 
 	dataShape = np.array(data.shape)
 	
@@ -152,13 +192,13 @@ def scalar(time, data, unit=None, name=""):
 		print('size mismatch, figure out how to throw exception')
 
 	if dataShape.shape[0] == 1:
-		return TSeries(time,data,'scalar',name=name,unit=unit)
+		return TSeries(time,data,'scalar',name=name,unit=unit,position=position)
 	else:
 		return None
 
 
 
-def vector(time, data, unit=None, name=""):
+def vector(time, data, unit=None, name="",position=None):
 
 	dataShape = np.array(data.shape)
 	
@@ -169,19 +209,19 @@ def vector(time, data, unit=None, name=""):
 		print('size mismatch, figure out how to throw exception')
 
 	if dataShape.shape[0] == 2 and dataShape[1] == 3:
-		return TSeries(time,data,'vector',name=name,unit=unit)
+		return TSeries(time,data,'vector',name=name,unit=unit,position=position)
 	else:
 		return None
 
 
 
-def tensor(time, data, unit=None, name=""):
+def tensor(time, data, unit=None, name="",position=None):
 
 	# todo
 	return None
 
 
-def spec(time, data, depend, unit=None, dependUnit=None, name=""):
+def spec(time, data, depend, unit=None, dependUnit=None, name="",position=None,ancillary={}):
 
 	dataShape = np.array(data.shape)
 	
@@ -193,7 +233,7 @@ def spec(time, data, depend, unit=None, dependUnit=None, name=""):
 
 	# add more checks here
 	if dataShape.shape[0] == 2 and dataShape[1] > 3:
-		return TSeries(time,data,'spec',name=name,unit=unit,depend=depend,dependUnit=dependUnit)
+		return TSeries(time,data,'spec',name=name,unit=unit,depend=depend,dependUnit=dependUnit,position=position,ancillary=ancillary)
 	else:
 		print('error in spec:'+str(dataShape.shape[0])+','+str(dataShape[1]))
 		print(time)
@@ -205,7 +245,7 @@ def spec(time, data, depend, unit=None, dependUnit=None, name=""):
 class TSeries(object):
 
 
-	def __init__(self, time, data, dataType, unit=None, depend=None, dependUnit=None, name=""):
+	def __init__(self, time, data, dataType, unit=None, depend=None, dependUnit=None, name="",position=None,ancillary={}):
 		# class will not complain if user misbehaves
 
 		# number of time steps
@@ -224,10 +264,11 @@ class TSeries(object):
 		self.unit = unit
 		self.depend = depend
 		self.name = name
+		self.position = position
+		self.ancillary = ancillary
 
 		# todo
-		self.tensorOrder = None
-		self.position = None
+		self.tensorOrder = None		
 		self.cid = None
 
 
@@ -258,13 +299,11 @@ class TSeries(object):
 			h.plot(self.time,self.data[:,2],"-",linewidth=2,color="r")
 		if self.type == "spec":
 			cdata = self.data.transpose()
-			cdata[cdata==0] = 1e-20
-			cdata = np.log10(cdata)
-			
-			h.pcolor(self.time,self.depend,cdata,vmin=np.nanmin(cdata),vmax=np.nanmax(cdata))
+			cdata[cdata==0] = np.nan
+			h.pcolor(self.time,self.depend,np.log10(cdata))
 
 
-		
+		# should also print units, must look for "^"s
 		h.set_ylabel(self.name+" ["+"]")
 
 
